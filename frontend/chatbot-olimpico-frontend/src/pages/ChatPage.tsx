@@ -165,6 +165,16 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  // ==================== LOGOUT ====================
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate(ROUTES.LOGIN);
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
+
   // ==================== FORMATEAR TIEMPO ====================
   const formatearTiempo = (timestamp: string) => {
     return chatService.formatearFechaMensaje(timestamp);
@@ -250,7 +260,7 @@ const ChatPage: React.FC = () => {
 
       {/* Área Principal */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
+        {/* ✅ HEADER ORIGINAL + BOTÓN DE LOGOUT */}
         <div className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -293,62 +303,68 @@ const ChatPage: React.FC = () => {
                 </button>
               )}
 
-              {/* User Menu */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">{user?.username}</span>
-                <button
-                  onClick={logout}
-                  className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100"
-                  title="Cerrar sesión"
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </button>
-              </div>
+              {/* ✅ BOTÓN DE LOGOUT CON TEXTO */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 text-gray-500 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                title="Cerrar sesión"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="text-sm font-medium">Cerrar sesión</span>
+              </button>
             </div>
           </div>
         </div>
 
         {/* Área de Mensajes */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {mensajes.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="mx-auto h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
+        <div className="flex-1 overflow-y-auto p-4">
+          {!conversacionActual ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="mx-auto h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Bienvenido al Chatbot Olímpico
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Selecciona una conversación o crea una nueva para empezar a chatear
+                </p>
+                <button
+                  onClick={handleNuevaConversacion}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Nueva Conversación
+                </button>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                ¡Hola! Soy tu asistente olímpico
-              </h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Puedes preguntarme sobre medallistas, países, deportes y estadísticas de los Juegos Olímpicos de Verano 1976-2008.
-              </p>
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
               {mensajes.map((mensaje) => (
                 <div
                   key={mensaje.id}
                   className={`flex ${mensaje.rol === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-3xl rounded-lg px-4 py-2 ${
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                       mensaje.rol === 'user'
                         ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-gray-200'
+                        : 'bg-white text-gray-900 border border-gray-200'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{mensaje.contenido}</div>
-                    
-                    <div className="flex items-center justify-between mt-2 text-xs opacity-70">
-                      <span>{formatearTiempo(mensaje.timestamp)}</span>
-                      
-                      {mensaje.rol === 'assistant' && mensaje.consulta_sql && (
+                    <p className="text-sm">{mensaje.contenido}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs opacity-75">
+                        {formatearTiempo(mensaje.timestamp)}
+                      </p>
+                      {mensaje.consulta_sql && (
                         <button
                           onClick={() => handleMostrarDetalles(mensaje)}
-                          className="text-blue-600 hover:text-blue-800 underline"
+                          className="text-xs underline opacity-75 hover:opacity-100"
                         >
                           Ver detalles
                         </button>
@@ -360,110 +376,123 @@ const ChatPage: React.FC = () => {
               
               {enviandoMensaje && (
                 <div className="flex justify-start">
-                  <div className="bg-white border border-gray-200 rounded-lg px-4 py-2">
-                    <DotsLoading text="Analizando datos" />
+                  <div className="bg-white text-gray-900 border border-gray-200 px-4 py-2 rounded-lg">
+                    <DotsLoading text="Escribiendo" />
                   </div>
                 </div>
               )}
-            </>
+              
+              <div ref={messagesEndRef} />
+            </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="bg-white border-t border-gray-200 p-4">
-          <form onSubmit={handleSubmit} className="flex space-x-3">
-            <input
-              ref={inputRef}
-              type="text"
-              value={mensajeInput}
-              onChange={(e) => setMensajeInput(e.target.value)}
-              placeholder="Pregunta sobre datos olímpicos..."
-              className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={enviandoMensaje}
-            />
-            <button
-              type="submit"
-              disabled={!mensajeInput.trim() || enviandoMensaje}
-              className="bg-blue-600 text-white rounded-lg px-6 py-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Enviar
-            </button>
-          </form>
-        </div>
+        {/* Área de Input */}
+        {conversacionActual && (
+          <div className="border-t border-gray-200 bg-white p-4">
+            <form onSubmit={handleSubmit} className="flex space-x-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={mensajeInput}
+                onChange={(e) => setMensajeInput(e.target.value)}
+                placeholder="Escribe tu pregunta sobre datos olímpicos..."
+                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={enviandoMensaje}
+              />
+              <button
+                type="submit"
+                disabled={!mensajeInput.trim() || enviandoMensaje}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Enviar
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Modales */}
-      
-      {/* Modal de Confirmación de Eliminación */}
-      <ConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        onConfirm={confirmarEliminarConversacion}
-        title="Eliminar Conversación"
-        message="¿Estás seguro de que quieres eliminar esta conversación? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        type="danger"
-      />
-
-      {/* Modal de Detalles de Datos (Criterio G) */}
       <DataDetailsModal
         isOpen={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        title="Detalles de la Consulta"
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedMessage(null);
+          setDetallesContexto(null);
+        }}
+        title="Detalles del Mensaje"
         sqlQuery={selectedMessage?.consulta_sql}
         data={detallesContexto?.muestra_datos || []}
         totalResults={detallesContexto?.total_resultados || 0}
         loading={loadingDetails}
       />
 
-      {/* Modal de Configuraciones (Criterio E) */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setConversacionAEliminar(null);
+        }}
+        onConfirm={confirmarEliminarConversacion}
+        title="Eliminar Conversación"
+        message="¿Estás seguro de que quieres eliminar esta conversación? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        type="danger"
+      />
+
       <FormModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
-        title="Configuraciones de Búsqueda"
+        title="Configuraciones"
       >
         <div className="space-y-6">
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Términos Excluidos</h4>
+            <h3 className="text-lg font-medium text-gray-900 mb-3">
+              Términos Excluidos
+            </h3>
             <p className="text-sm text-gray-600 mb-4">
-              Los términos en esta lista serán filtrados de tus búsquedas.
+              Palabras que serán filtradas de tus preguntas antes de procesarlas.
             </p>
             
-            {/* Lista de términos */}
-            <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
-              {terminosExcluidos.map((termino) => (
-                <div key={termino.id} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
-                  <span className="text-sm">{termino.termino}</span>
-                  <button
-                    onClick={() => handleEliminarTermino(termino.id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Agregar nuevo término */}
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 mb-4">
               <input
                 type="text"
                 value={nuevoTermino}
                 onChange={(e) => setNuevoTermino(e.target.value)}
-                placeholder="Agregar término a excluir..."
-                className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Agregar término..."
+                className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={handleAgregarTermino}
-                disabled={!nuevoTermino.trim()}
-                className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
               >
                 Agregar
               </button>
+            </div>
+            
+            <div className="max-h-40 overflow-y-auto">
+              {terminosExcluidos.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay términos excluidos</p>
+              ) : (
+                <div className="space-y-2">
+                  {terminosExcluidos.map((termino) => (
+                    <div
+                      key={termino.id}
+                      className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md"
+                    >
+                      <span className="text-sm">{termino.termino}</span>
+                      <button
+                        onClick={() => handleEliminarTermino(termino.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
