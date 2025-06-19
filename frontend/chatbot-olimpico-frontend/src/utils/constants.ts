@@ -1,11 +1,19 @@
-// src/utils/constants.ts
+// src/utils/constants.ts - CONFIGURACIÓN OPTIMIZADA PARA RESPUESTAS LARGAS
 
 // ==================== CONFIGURACIÓN DE API ====================
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000',
-  TIMEOUT: 10000,
+  TIMEOUT: 30000, // ✅ Aumentado a 30 segundos para operaciones normales
   HEADERS: {
     'Content-Type': 'application/json',
+  },
+  // ✅ Timeouts específicos por tipo de operación
+  TIMEOUTS: {
+    CHAT: 120000,        // 2 minutos para chat (consultas complejas)
+    AUTH: 10000,         // 10 segundos para autenticación
+    CONVERSATION: 15000, // 15 segundos para conversaciones
+    ADMIN: 30000,        // 30 segundos para operaciones admin
+    NORMAL: 30000,       // 30 segundos para operaciones normales
   }
 } as const;
 
@@ -80,10 +88,12 @@ export const MESSAGES = {
   CHAT: {
     SENDING: 'Enviando mensaje...',
     ERROR: 'Error al enviar mensaje',
+    ERROR_TIMEOUT: 'La consulta está tardando más de lo normal. El sistema está procesando tu pregunta...',
     LOADING_CONVERSATIONS: 'Cargando conversaciones...',
     NO_CONVERSATIONS: 'No tienes conversaciones aún',
     NEW_CONVERSATION: 'Nueva conversación',
     DELETE_CONFIRMATION: '¿Estás seguro de eliminar esta conversación?',
+    PROCESSING_LONG: 'Procesando consulta compleja, esto puede tardar unos momentos...',
   },
   
   ADMIN: {
@@ -120,6 +130,9 @@ export const UI_CONFIG = {
   TYPING_DELAY: 1000,
   AUTO_SCROLL_DELAY: 100,
   TOAST_DURATION: 3000,
+  // ✅ Configuración para operaciones largas
+  LONG_OPERATION_WARNING_TIME: 10000, // Mostrar warning después de 10s
+  LONG_OPERATION_MAX_TIME: 120000,     // Máximo 2 minutos
 } as const;
 
 // ==================== CONTEXTOS DE PROMPT ====================

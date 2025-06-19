@@ -121,12 +121,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     }
   };
 
-  // ==================== ENVIAR MENSAJE - VERSIÓN SIMPLE Y CONFIABLE ====================
+  // ==================== ENVIAR MENSAJE - VERSIÓN CON MEJOR DEBUG ====================
   const enviarMensaje = async (pregunta: string): Promise<void> => {
     const tempId = -Date.now(); // ID temporal negativo único
     
     try {
       setEnviandoMensaje(true);
+      console.log('🚀 Iniciando envío de mensaje:', pregunta);
 
       // Validar mensaje
       const errores = chatService.validarMensaje(pregunta);
@@ -143,23 +144,30 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         timestamp: new Date().toISOString()
       };
 
-      setMensajes(prev => [...prev, mensajeUsuario]);
+      setMensajes(prev => {
+        console.log('✅ Agregando mensaje del usuario, total mensajes:', prev.length + 1);
+        return [...prev, mensajeUsuario];
+      });
 
       // 2. ENVIAR AL BACKEND Y ESPERAR RESPUESTA
+      console.log('📡 Enviando al backend...');
       let chatResponse: ChatResponse;
       
       if (conversacionActual) {
         // Enviar en conversación existente
+        console.log('📝 Enviando en conversación existente ID:', conversacionActual.id);
         chatResponse = await chatService.enviarMensajeEnConversacion(
           pregunta, 
           conversacionActual.id
         );
       } else {
         // Enviar en nueva conversación
+        console.log('🆕 Creando nueva conversación');
         chatResponse = await chatService.enviarMensajeNuevaConversacion(pregunta);
         
         // Si es nueva conversación, actualizar el contexto
         if (!conversacionActual) {
+          console.log('🔄 Actualizando contexto de nueva conversación');
           await cargarConversaciones();
           const nuevaConversacion = await chatService.obtenerConversacion(chatResponse.id_conversacion);
           setConversacionActual(nuevaConversacion);
@@ -173,6 +181,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         }
       }
 
+      console.log('✅ Respuesta recibida del backend:', {
+        id_mensaje: chatResponse.id_mensaje,
+        longitud_respuesta: chatResponse.respuesta.length,
+        tiene_sql: !!chatResponse.consulta_sql
+      });
+
       // 3. AGREGAR RESPUESTA DEL ASISTENTE DIRECTAMENTE
       const mensajeAsistente: Mensaje = {
         id: chatResponse.id_mensaje,
@@ -183,8 +197,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         timestamp: new Date().toISOString()
       };
 
-      // Simplemente agregar la respuesta al final
-      setMensajes(prev => [...prev, mensajeAsistente]);
+      // Agregar la respuesta al final
+      setMensajes(prev => {
+        const nuevoArray = [...prev, mensajeAsistente];
+        console.log('✅ Agregando respuesta del asistente, total mensajes:', nuevoArray.length);
+        console.log('📄 Longitud de la respuesta:', chatResponse.respuesta.length, 'caracteres');
+        return nuevoArray;
+      });
 
       // 4. ACTUALIZAR FECHA DE ÚLTIMA ACTIVIDAD
       if (conversacionActual) {
@@ -194,14 +213,35 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         } : null);
       }
 
+      console.log('🎉 Mensaje enviado y respuesta agregada exitosamente');
+
     } catch (error) {
-      console.error('Error al enviar mensaje:', error);
+      console.error('❌ Error al enviar mensaje:', error);
+      
+      // Type guard para manejar el error correctamente
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      console.error('📊 Detalles del error:', {
+        message: errorMessage,
+        stack: errorStack,
+        tempId: tempId,
+        conversacionActual: conversacionActual?.id,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name
+      });
       
       // En caso de error, remover solo el mensaje temporal del usuario
-      setMensajes(prev => prev.filter(msg => msg.id !== tempId));
+      setMensajes(prev => {
+        const filtrado = prev.filter(msg => msg.id !== tempId);
+        console.log('🧹 Removiendo mensaje temporal, mensajes restantes:', filtrado.length);
+        return filtrado;
+      });
       
+      // Re-lanzar el error para que el componente lo pueda manejar
       throw error;
     } finally {
+      console.log('🏁 Finalizando envío de mensaje');
       setEnviandoMensaje(false);
     }
   };

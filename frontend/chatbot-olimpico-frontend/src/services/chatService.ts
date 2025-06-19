@@ -1,39 +1,24 @@
-// src/services/chatService.ts
+// src/services/chatService.ts - VERSIÓN OPTIMIZADA PARA RESPUESTAS LARGAS
 import { apiClient } from './api';
-import { ENDPOINTS } from '../utils/constants';
+import { ENDPOINTS, API_CONFIG, MESSAGES } from '../utils/constants';
 import type { 
-  ChatRequest, 
-  ChatResponse,
   ConversacionCreate,
   ConversacionResponse,
   ConversacionConMensajes,
-  SuccessResponse
+  ChatRequest,
+  ChatResponse
 } from '../types';
 
 class ChatService {
 
-  // ==================== CHAT PRINCIPAL (Criterio A + D) ====================
-  async enviarMensaje(chatRequest: ChatRequest): Promise<ChatResponse> {
-    try {
-      const response = await apiClient.post<ChatResponse>(
-        ENDPOINTS.CHAT.BASE,
-        chatRequest
-      );
-      
-      return response;
-    } catch (error) {
-      console.error('Error al enviar mensaje:', error);
-      throw error;
-    }
-  }
+  // ==================== CONVERSACIONES ====================
 
-  // ==================== GESTIÓN DE CONVERSACIONES (Criterio B) ====================
-  
   async crearConversacion(conversacion: ConversacionCreate): Promise<ConversacionResponse> {
     try {
       const response = await apiClient.post<ConversacionResponse>(
         ENDPOINTS.CONVERSATIONS.BASE,
-        conversacion
+        conversacion,
+        { timeout: API_CONFIG.TIMEOUTS.CONVERSATION } // ✅ 15 segundos para conversaciones
       );
       
       return response;
@@ -43,10 +28,11 @@ class ChatService {
     }
   }
 
-  async obtenerConversaciones(skip: number = 0, limit: number = 100): Promise<ConversacionResponse[]> {
+  async obtenerConversaciones(): Promise<ConversacionResponse[]> {
     try {
       const response = await apiClient.get<ConversacionResponse[]>(
-        `${ENDPOINTS.CONVERSATIONS.BASE}?skip=${skip}&limit=${limit}`
+        ENDPOINTS.CONVERSATIONS.BASE,
+        { timeout: API_CONFIG.TIMEOUTS.CONVERSATION } // ✅ 15 segundos
       );
       
       return response;
@@ -56,10 +42,11 @@ class ChatService {
     }
   }
 
-  async obtenerConversacion(conversacionId: number): Promise<ConversacionConMensajes> {
+  async obtenerConversacion(id: number): Promise<ConversacionConMensajes> {
     try {
       const response = await apiClient.get<ConversacionConMensajes>(
-        ENDPOINTS.CONVERSATIONS.BY_ID(conversacionId)
+        ENDPOINTS.CONVERSATIONS.BY_ID(id),
+        { timeout: API_CONFIG.TIMEOUTS.CONVERSATION } // ✅ 15 segundos
       );
       
       return response;
@@ -69,25 +56,27 @@ class ChatService {
     }
   }
 
-  async eliminarConversacion(conversacionId: number): Promise<SuccessResponse> {
+  async eliminarConversacion(id: number): Promise<void> {
     try {
-      const response = await apiClient.delete<SuccessResponse>(
-        ENDPOINTS.CONVERSATIONS.BY_ID(conversacionId)
+      await apiClient.delete(
+        ENDPOINTS.CONVERSATIONS.BY_ID(id),
+        { timeout: API_CONFIG.TIMEOUTS.NORMAL } // ✅ 30 segundos
       );
-      
-      return response;
     } catch (error) {
       console.error('Error al eliminar conversación:', error);
       throw error;
     }
   }
 
-  async actualizarTituloConversacion(conversacionId: number, nuevoTitulo: string): Promise<ConversacionResponse> {
+  async actualizarTituloConversacion(id: number, nuevoTitulo: string): Promise<ConversacionResponse> {
     try {
       const response = await apiClient.put<ConversacionResponse>(
-        ENDPOINTS.CONVERSATIONS.UPDATE_TITLE(conversacionId),
-        null,
-        { params: { nuevo_titulo: nuevoTitulo } }
+        ENDPOINTS.CONVERSATIONS.UPDATE_TITLE(id),
+        nuevoTitulo,
+        { 
+          timeout: API_CONFIG.TIMEOUTS.NORMAL, // ✅ 30 segundos
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
       
       return response;
@@ -97,22 +86,91 @@ class ChatService {
     }
   }
 
-  async obtenerEstadisticasConversaciones(): Promise<any> {
+  // ==================== CHAT CON TIMEOUT OPTIMIZADO ====================
+
+  /**
+   * Enviar mensaje - VERSIÓN OPTIMIZADA PARA RESPUESTAS LARGAS
+   */
+  async enviarMensaje(chatRequest: ChatRequest): Promise<ChatResponse> {
     try {
-      const response = await apiClient.get(ENDPOINTS.CONVERSATIONS.STATS);
+      console.log('🚀 Iniciando envío de mensaje al backend');
+      console.log('📊 Configuración de timeout:', {
+        timeout_chat: API_CONFIG.TIMEOUTS.CHAT,
+        timeout_normal: API_CONFIG.TIMEOUTS.NORMAL,
+        pregunta_length: chatRequest.pregunta.length
+      });
+
+      // ✅ USAR TIMEOUT LARGO ESPECÍFICO PARA CHAT (2 minutos)
+      const response = await apiClient.post<ChatResponse>(
+        ENDPOINTS.CHAT.BASE,
+        chatRequest,
+        { 
+          timeout: API_CONFIG.TIMEOUTS.CHAT, // ✅ 120 segundos para chat
+          // ✅ Headers adicionales para operaciones largas
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Operation-Type': 'chat',
+            'X-Expect-Long-Response': 'true'
+          }
+        }
+      );
+
+      console.log('✅ Respuesta recibida exitosamente del backend');
+      console.log('📈 Detalles de la respuesta:', {
+        id_mensaje: response.id_mensaje,
+        id_conversacion: response.id_conversacion,
+        longitud_respuesta: response.respuesta.length,
+        tiene_sql: !!response.consulta_sql,
+        tiempo_procesamiento: 'completado'
+      });
+
       return response;
     } catch (error) {
-      console.error('Error al obtener estadísticas:', error);
+      console.error('❌ Error al enviar mensaje al backend:', error);
+      
+      // ✅ Mejorar el manejo de errores de timeout
+      if (this.isTimeoutError(error)) {
+        console.error('⏱️ Error de timeout detectado');
+        throw new Error(MESSAGES.CHAT.ERROR_TIMEOUT);
+      }
+      
+      // ✅ Mejorar el manejo de errores de conexión
+      if (this.isNetworkError(error)) {
+        console.error('🌐 Error de red detectado');
+        throw new Error('Error de conexión. Verifica tu conexión a internet y el estado del servidor.');
+      }
+
       throw error;
     }
   }
 
-  // ==================== DETALLES DE CONTEXTO (Criterio G) ====================
+  // ==================== HELPERS PARA DETECCIÓN DE ERRORES ====================
+
+  private isTimeoutError(error: any): boolean {
+    return (
+      error?.code === 'ECONNABORTED' ||
+      error?.message?.includes('timeout') ||
+      error?.message?.includes('ECONNABORTED') ||
+      error?.response?.status === 408
+    );
+  }
+
+  private isNetworkError(error: any): boolean {
+    return (
+      !error?.response ||
+      error?.code === 'ECONNREFUSED' ||
+      error?.code === 'ENOTFOUND' ||
+      error?.message?.includes('Network Error')
+    );
+  }
+
+  // ==================== DETALLES DE CONTEXTO ====================
   
   async obtenerDetallesContexto(mensajeId: number): Promise<any> {
     try {
       const response = await apiClient.get(
-        ENDPOINTS.DATA.DETAILS(mensajeId)
+        ENDPOINTS.DATA.DETAILS(mensajeId),
+        { timeout: API_CONFIG.TIMEOUTS.NORMAL } // ✅ 30 segundos
       );
       
       return response;
@@ -128,6 +186,7 @@ class ChatService {
    * Enviar mensaje en conversación existente
    */
   async enviarMensajeEnConversacion(pregunta: string, conversacionId: number): Promise<ChatResponse> {
+    console.log('📝 Enviando mensaje en conversación existente:', conversacionId);
     return this.enviarMensaje({
       pregunta,
       id_conversacion: conversacionId
@@ -138,6 +197,7 @@ class ChatService {
    * Enviar mensaje en nueva conversación
    */
   async enviarMensajeNuevaConversacion(pregunta: string): Promise<ChatResponse> {
+    console.log('🆕 Enviando mensaje en nueva conversación');
     return this.enviarMensaje({
       pregunta
       // id_conversacion se omite para crear nueva conversación
@@ -212,7 +272,30 @@ class ChatService {
    * Determinar si un mensaje tiene datos de contexto disponibles
    */
   tieneDetallesDisponibles(consulta_sql?: string): boolean {
-    return !!consulta_sql && consulta_sql.trim().length > 0;
+    return !!consulta_sql?.trim();
+  }
+
+  /**
+   * Estimar si una pregunta puede generar una respuesta larga
+   */
+  esConsultaCompleja(pregunta: string): boolean {
+    const palabrasComplejas = [
+      'todos', 'todas', 'lista', 'detallada', 'completo', 'completa',
+      'explica', 'explícame', 'describe', 'analiza', 'compara',
+      'historia', 'evolución', 'desarrollo', 'resumen',
+      'características', 'diferencias', 'similitudes'
+    ];
+
+    const preguntaLower = pregunta.toLowerCase();
+    return palabrasComplejas.some(palabra => preguntaLower.includes(palabra)) ||
+           pregunta.length > 100;
+  }
+
+  /**
+   * Obtener mensaje de estado para consultas complejas
+   */
+  getMensajeProcesamientoLargo(): string {
+    return MESSAGES.CHAT.PROCESSING_LONG;
   }
 }
 
@@ -221,10 +304,15 @@ export const chatService = new ChatService();
 
 // ==================== HELPERS PARA DEBUGGING ====================
 export const debugChat = {
-  enviarMensajePrueba: (pregunta: string) => 
-    chatService.enviarMensajeNuevaConversacion(pregunta),
-  obtenerConversaciones: () => 
-    chatService.obtenerConversaciones(),
-  validarMensaje: (pregunta: string) => 
-    chatService.validarMensaje(pregunta),
+  getTimeouts: () => API_CONFIG.TIMEOUTS,
+  testConnection: async () => {
+    try {
+      await chatService.obtenerConversaciones();
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  estimarComplejidad: (pregunta: string) => chatService.esConsultaCompleja(pregunta),
+  validarMensaje: (pregunta: string) => chatService.validarMensaje(pregunta),
 };

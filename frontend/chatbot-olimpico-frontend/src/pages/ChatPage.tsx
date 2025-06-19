@@ -13,14 +13,25 @@ import type { Mensaje, TerminoExcluido } from '../types';
 // ==================== COMPONENTE TYPING INDICATOR ====================
 interface TypingIndicatorProps {
   show: boolean;
+  isLongQuery?: boolean;
+  tiempoTranscurrido?: number;
   className?: string;
 }
 
 const TypingIndicator: React.FC<TypingIndicatorProps> = ({ 
   show, 
+  isLongQuery = false,
+  tiempoTranscurrido = 0,
   className = '' 
 }) => {
   if (!show) return null;
+
+  const formatearTiempo = (segundos: number) => {
+    if (segundos < 60) return `${segundos}s`;
+    const min = Math.floor(segundos / 60);
+    const sec = segundos % 60;
+    return `${min}m ${sec}s`;
+  };
 
   return (
     <div className={`flex items-start space-x-3 ${className}`}>
@@ -34,15 +45,39 @@ const TypingIndicator: React.FC<TypingIndicatorProps> = ({
       </div>
 
       {/* Burbuja de escritura */}
-      <div className="bg-gray-100 rounded-lg rounded-tl-none px-4 py-3 max-w-xs">
+      <div className="bg-gray-100 rounded-lg rounded-tl-none px-4 py-3 max-w-md">
         <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600">El asistente está escribiendo</span>
+          <span className="text-sm text-gray-600">
+            {isLongQuery 
+              ? "Procesando consulta compleja, esto puede tardar unos momentos..."
+              : "El asistente está escribiendo"
+            }
+          </span>
           <div className="flex space-x-1">
             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
           </div>
         </div>
+        
+        {/* ✅ Barra de progreso y tiempo para consultas largas */}
+        {isLongQuery && (
+          <div className="mt-3">
+            <div className="w-full bg-gray-200 rounded-full h-1">
+              <div className="bg-blue-500 h-1 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+            </div>
+            <div className="flex justify-between items-center mt-1">
+              <p className="text-xs text-gray-500">
+                Analizando datos olímpicos...
+              </p>
+              {tiempoTranscurrido > 0 && (
+                <p className="text-xs text-blue-600 font-medium">
+                  {formatearTiempo(tiempoTranscurrido)}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -57,6 +92,17 @@ interface MessageItemProps {
 
 const MessageItem: React.FC<MessageItemProps> = ({ mensaje, onShowDetails, formatearTiempo }) => {
   const isUser = mensaje.rol === 'user';
+  
+  // Debug para respuestas largas
+  useEffect(() => {
+    if (!isUser && mensaje.contenido) {
+      console.log('🎨 Renderizando mensaje del asistente:', {
+        id: mensaje.id,
+        longitud: mensaje.contenido.length,
+        preview: mensaje.contenido.substring(0, 100) + '...'
+      });
+    }
+  }, [mensaje.contenido, isUser, mensaje.id]);
   
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -78,7 +124,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ mensaje, onShowDetails, forma
               : 'bg-white text-gray-900 border border-gray-200 rounded-tl-sm'
           }`}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{mensaje.contenido}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+            {mensaje.contenido}
+          </p>
           
           <div className={`flex items-center justify-between mt-3 pt-2 border-t ${
             isUser ? 'border-blue-500' : 'border-gray-100'
@@ -147,6 +195,11 @@ const ChatPage: React.FC = () => {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [terminosExcluidos, setTerminosExcluidos] = useState<TerminoExcluido[]>([]);
   const [nuevoTermino, setNuevoTermino] = useState('');
+  
+  // ✅ Estados para manejar consultas largas
+  const [mostrarAdvertenciaLarga, setMostrarAdvertenciaLarga] = useState(false);
+  const [tiempoInicioConsulta, setTiempoInicioConsulta] = useState<number | null>(null);
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
 
   // Refs para scroll automático
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -158,9 +211,17 @@ const ChatPage: React.FC = () => {
     cargarTerminosExcluidos();
   }, []);
 
+  // Scroll mejorado que espera el renderizado completo
   useEffect(() => {
-    scrollToBottom();
-  }, [mensajes, enviandoMensaje]); // ✅ También hacer scroll cuando cambie enviandoMensaje
+    const scrollToBottomDelayed = () => {
+      // Usar setTimeout para asegurar que el DOM se haya actualizado
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    };
+    
+    scrollToBottomDelayed();
+  }, [mensajes, enviandoMensaje]);
 
   // Auto-focus en el input cuando se selecciona una conversación
   useEffect(() => {
@@ -169,13 +230,58 @@ const ChatPage: React.FC = () => {
     }
   }, [conversacionActual]);
 
-  // ==================== FUNCIONES DE SCROLL ====================
+  // ✅ Monitorear consultas largas
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    let intervalTimer: NodeJS.Timeout;
+    
+    if (enviandoMensaje) {
+      // Marcar tiempo de inicio
+      const inicioTiempo = Date.now();
+      setTiempoInicioConsulta(inicioTiempo);
+      setMostrarAdvertenciaLarga(false);
+      setTiempoTranscurrido(0);
+      
+      // Actualizar tiempo transcurrido cada segundo
+      intervalTimer = setInterval(() => {
+        const tiempoActual = Math.floor((Date.now() - inicioTiempo) / 1000);
+        setTiempoTranscurrido(tiempoActual);
+      }, 1000);
+      
+      // Mostrar advertencia después de 15 segundos
+      timer = setTimeout(() => {
+        setMostrarAdvertenciaLarga(true);
+        console.log('⏱️ Mostrando advertencia de consulta larga');
+      }, 15000);
+    } else {
+      // Limpiar cuando termine
+      setMostrarAdvertenciaLarga(false);
+      setTiempoInicioConsulta(null);
+      setTiempoTranscurrido(0);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (intervalTimer) clearInterval(intervalTimer);
+    };
+  }, [enviandoMensaje]);
+
+  // ==================== FUNCIONES DE SCROLL MEJORADAS ====================
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'end'
-      });
+      try {
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'end',
+          inline: 'nearest'
+        });
+      } catch (error) {
+        console.warn('Error en scroll automático:', error);
+        // Fallback: scroll manual
+        if (messagesEndRef.current.parentElement) {
+          messagesEndRef.current.parentElement.scrollTop = messagesEndRef.current.parentElement.scrollHeight;
+        }
+      }
     }
   };
 
@@ -189,12 +295,18 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  // ==================== MANEJO DE MENSAJES OPTIMIZADO ====================
+  // ==================== MANEJO DE MENSAJES CON MEJOR ERROR HANDLING ====================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const mensaje = mensajeInput.trim();
     if (!mensaje || enviandoMensaje) return;
+
+    console.log('📝 Iniciando handleSubmit con mensaje:', mensaje.substring(0, 50) + '...');
+
+    // ✅ Detectar si es una consulta compleja
+    const esCompleja = chatService.esConsultaCompleja(mensaje);
+    console.log('🔍 Consulta detectada como:', esCompleja ? 'compleja' : 'simple');
 
     try {
       // ✅ Limpiar input inmediatamente para mejor UX
@@ -203,12 +315,44 @@ const ChatPage: React.FC = () => {
       // ✅ El ChatContext optimizado maneja la actualización en tiempo real
       await enviarMensaje(mensaje);
       
+      console.log('✅ Mensaje enviado exitosamente desde handleSubmit');
+      
       // ✅ Mantener el foco en el input
-      inputRef.current?.focus();
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      
+      // ✅ Scroll adicional después de un breve delay para respuestas largas
+      setTimeout(() => {
+        scrollToBottom();
+      }, 500);
+      
     } catch (error) {
-      console.error('Error al enviar mensaje:', error);
+      console.error('❌ Error en handleSubmit:', error);
+      
+      // Type guard para manejar el error correctamente
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const errorName = error instanceof Error ? error.name : 'UnknownError';
+      
+      console.error('📊 Detalles completos del error:', {
+        message: errorMessage,
+        name: errorName,
+        stack: errorStack,
+        errorType: typeof error,
+        esConsultaCompleja: esCompleja
+      });
+      
       // ✅ Restaurar mensaje en caso de error
       setMensajeInput(mensaje);
+      
+      // ✅ Mostrar error específico al usuario
+      let mensajeError = errorMessage;
+      if (errorMessage.includes('timeout') || errorMessage.includes('tardando')) {
+        mensajeError = `Tu consulta está tomando más tiempo del esperado. ${esCompleja ? 'Las consultas complejas pueden tardar hasta 2 minutos.' : 'Por favor intenta de nuevo.'}`;
+      }
+      
+      alert(`Error al enviar mensaje: ${mensajeError}`);
     }
   };
 
@@ -525,7 +669,11 @@ const ChatPage: React.FC = () => {
                 ))}
                 
                 {/* ✅ Indicador de escritura mejorado */}
-                <TypingIndicator show={enviandoMensaje} />
+                <TypingIndicator 
+                  show={enviandoMensaje} 
+                  isLongQuery={mostrarAdvertenciaLarga}
+                  tiempoTranscurrido={tiempoTranscurrido}
+                />
                 
                 {/* Referencia para scroll automático */}
                 <div ref={messagesEndRef} />
