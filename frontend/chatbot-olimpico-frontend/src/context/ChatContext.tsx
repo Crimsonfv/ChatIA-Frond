@@ -1,4 +1,4 @@
-// src/context/ChatContext.tsx
+// src/context/ChatContext.tsx - VERSIÓN OPTIMIZADA
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { chatService } from '../services/chatService';
@@ -121,8 +121,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     }
   };
 
-  // ==================== ENVIAR MENSAJE ====================
+  // ==================== ENVIAR MENSAJE - VERSIÓN SIMPLE Y CONFIABLE ====================
   const enviarMensaje = async (pregunta: string): Promise<void> => {
+    const tempId = -Date.now(); // ID temporal negativo único
+    
     try {
       setEnviandoMensaje(true);
 
@@ -132,10 +134,22 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         throw new Error(errores[0]);
       }
 
+      // 1. AGREGAR MENSAJE DEL USUARIO INMEDIATAMENTE
+      const mensajeUsuario: Mensaje = {
+        id: tempId,
+        id_conversacion: conversacionActual?.id || 0,
+        rol: 'user',
+        contenido: pregunta,
+        timestamp: new Date().toISOString()
+      };
+
+      setMensajes(prev => [...prev, mensajeUsuario]);
+
+      // 2. ENVIAR AL BACKEND Y ESPERAR RESPUESTA
       let chatResponse: ChatResponse;
       
-      // Si hay conversación actual, enviar en esa conversación
       if (conversacionActual) {
+        // Enviar en conversación existente
         chatResponse = await chatService.enviarMensajeEnConversacion(
           pregunta, 
           conversacionActual.id
@@ -144,21 +158,48 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         // Enviar en nueva conversación
         chatResponse = await chatService.enviarMensajeNuevaConversacion(pregunta);
         
-        // Recargar conversaciones para incluir la nueva
-        await cargarConversaciones();
-        
-        // Seleccionar la nueva conversación
-        await seleccionarConversacion(chatResponse.id_conversacion);
-        return; // seleccionarConversacion ya actualiza los mensajes
+        // Si es nueva conversación, actualizar el contexto
+        if (!conversacionActual) {
+          await cargarConversaciones();
+          const nuevaConversacion = await chatService.obtenerConversacion(chatResponse.id_conversacion);
+          setConversacionActual(nuevaConversacion);
+          
+          // Actualizar el ID del mensaje del usuario con la conversación correcta
+          setMensajes(prev => prev.map(msg => 
+            msg.id === tempId 
+              ? { ...msg, id_conversacion: chatResponse.id_conversacion }
+              : msg
+          ));
+        }
       }
 
-      // Recargar mensajes de la conversación actual
+      // 3. AGREGAR RESPUESTA DEL ASISTENTE DIRECTAMENTE
+      const mensajeAsistente: Mensaje = {
+        id: chatResponse.id_mensaje,
+        id_conversacion: chatResponse.id_conversacion,
+        rol: 'assistant',
+        contenido: chatResponse.respuesta,
+        consulta_sql: chatResponse.consulta_sql,
+        timestamp: new Date().toISOString()
+      };
+
+      // Simplemente agregar la respuesta al final
+      setMensajes(prev => [...prev, mensajeAsistente]);
+
+      // 4. ACTUALIZAR FECHA DE ÚLTIMA ACTIVIDAD
       if (conversacionActual) {
-        await seleccionarConversacion(conversacionActual.id);
+        setConversacionActual(prev => prev ? {
+          ...prev,
+          fecha_ultima_actividad: new Date().toISOString()
+        } : null);
       }
 
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
+      
+      // En caso de error, remover solo el mensaje temporal del usuario
+      setMensajes(prev => prev.filter(msg => msg.id !== tempId));
+      
       throw error;
     } finally {
       setEnviandoMensaje(false);
