@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
 import Loading from '../components/common/Loading';
 import { DataDetailsModal, ConfirmModal, FormModal } from '../components/common/Modal';
+import ConversationDropdown from '../components/common/ConversationDropdown';
 import { chatService } from '../services/chatService';
 import { filterService } from '../services/filterService';
 import type { Mensaje, TerminoExcluido } from '../types';
@@ -184,7 +185,7 @@ const ChatPage: React.FC = () => {
   const navigate = useNavigate();
 
   // ==================== ESTADO LOCAL ====================
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mensajeInput, setMensajeInput] = useState('');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -196,9 +197,14 @@ const ChatPage: React.FC = () => {
   const [terminosExcluidos, setTerminosExcluidos] = useState<TerminoExcluido[]>([]);
   const [nuevoTermino, setNuevoTermino] = useState('');
   
+  // Estados para edición de título
+  const [showEditTitleModal, setShowEditTitleModal] = useState(false);
+  const [editingConversationId, setEditingConversationId] = useState<number | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  
   // ✅ Estados para manejar consultas largas
   const [mostrarAdvertenciaLarga, setMostrarAdvertenciaLarga] = useState(false);
-  const [tiempoInicioConsulta, setTiempoInicioConsulta] = useState<number | null>(null);
+  const [, setTiempoInicioConsulta] = useState<number | null>(null);
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
 
   // Refs para scroll automático
@@ -229,6 +235,18 @@ const ChatPage: React.FC = () => {
       inputRef.current.focus();
     }
   }, [conversacionActual]);
+
+  // Cerrar sidebar con tecla Escape
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [sidebarOpen]);
 
   // ✅ Monitorear consultas largas
   useEffect(() => {
@@ -317,6 +335,24 @@ const ChatPage: React.FC = () => {
       
       console.log('✅ Mensaje enviado exitosamente desde handleSubmit');
       
+      // ✅ Auto-generar título si es el primer mensaje de la conversación
+      if (conversacionActual && mensajes.length === 0) {
+        try {
+          const autoTitle = generateTitleFromMessage(mensaje);
+          console.log('🏷️ Generando título automático:', autoTitle);
+          
+          // Actualizar título automáticamente usando el servicio
+          await chatService.actualizarTituloConversacion(conversacionActual.id, autoTitle);
+          
+          // Recargar conversaciones para mostrar el nuevo título
+          await cargarConversaciones();
+          
+          console.log('✅ Título automático actualizado exitosamente');
+        } catch (error) {
+          console.log('⚠️ No se pudo generar título automático:', error);
+        }
+      }
+      
       // ✅ Mantener el foco en el input
       if (inputRef.current) {
         inputRef.current.focus();
@@ -391,6 +427,66 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  // ==================== MANEJO DE EDICIÓN DE TÍTULO ====================
+  const handleEditTitle = (conversationId: number, currentTitle: string) => {
+    setEditingConversationId(conversationId);
+    setNewTitle(currentTitle);
+    setShowEditTitleModal(true);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editingConversationId || !newTitle.trim()) return;
+    
+    try {
+      // Usar el servicio de chat para actualizar el título
+      const conversacionActualizada = await chatService.actualizarTituloConversacion(
+        editingConversationId, 
+        newTitle.trim()
+      );
+      
+      // Actualizar la lista de conversaciones en el estado local
+      await cargarConversaciones();
+      
+      // Si es la conversación actual, actualizar también el estado actual
+      if (conversacionActual?.id === editingConversationId) {
+        // Recargar la conversación actual para reflejar el nuevo título
+        await seleccionarConversacion(editingConversationId);
+      }
+      
+      setShowEditTitleModal(false);
+      setEditingConversationId(null);
+      setNewTitle('');
+      
+      console.log('✅ Título actualizado exitosamente:', conversacionActualizada.titulo);
+    } catch (error) {
+      console.error('❌ Error al actualizar título:', error);
+      alert('Error al actualizar el título de la conversación. Por favor, inténtalo de nuevo.');
+    }
+  };
+
+  const handleDeleteConversation = (conversationId: number, _title: string) => {
+    setConversacionAEliminar(conversationId);
+    setShowDeleteModal(true);
+  };
+
+  // ==================== AUTO-TÍTULO PARA PRIMERA PREGUNTA ====================
+  const generateTitleFromMessage = (message: string): string => {
+    // Generar título basado en la primera pregunta (máximo 50 caracteres)
+    const cleanMessage = message.trim();
+    if (cleanMessage.length <= 50) {
+      return cleanMessage;
+    }
+    
+    // Tomar las primeras palabras hasta 50 caracteres
+    const words = cleanMessage.split(' ');
+    let title = '';
+    for (const word of words) {
+      if ((title + ' ' + word).length > 47) break;
+      title += (title ? ' ' : '') + word;
+    }
+    return title + '...';
+  };
+
   // ==================== MANEJO DE DETALLES ====================
   const handleMostrarDetalles = async (mensaje: Mensaje) => {
     if (!mensaje.consulta_sql) return;
@@ -458,15 +554,29 @@ const ChatPage: React.FC = () => {
   // ==================== RENDER ====================
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-white border-r border-gray-200 flex flex-col overflow-hidden lg:relative absolute lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} z-30`}>
+      {/* Backdrop overlay for mobile */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Hidden by default, slides in when opened */}
+      <div className={`
+        ${sidebarOpen ? 'w-80' : 'w-0'} 
+        transition-all duration-300 bg-white border-r border-gray-200 flex flex-col overflow-hidden 
+        absolute lg:relative z-30
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
         {/* Header del Sidebar */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Conversaciones</h2>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-gray-500 hover:text-gray-700 p-1 rounded-md hover:bg-gray-100"
+              className="text-gray-500 hover:text-gray-700 p-1 rounded-md hover:bg-gray-100 transition-colors duration-200"
+              title="Cerrar panel"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -554,27 +664,45 @@ const ChatPage: React.FC = () => {
         <div className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Lado izquierdo */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 lg:hidden"
-                title="Toggle sidebar"
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100"
+                title={sidebarOpen ? "Cerrar conversaciones" : "Ver conversaciones"}
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+                {sidebarOpen ? (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                )}
               </button>
               
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">
-                  {conversacionActual?.titulo || 'Chatbot Olímpico'}
-                </h1>
-                {conversacionActual && (
-                  <p className="text-sm text-gray-500">
-                    {mensajes.length} mensaje{mensajes.length !== 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
+              {/* Conversation Switcher - always visible when in chat */}
+              {conversacionActual ? (
+                <div className="flex-1 max-w-sm">
+                  <div className="flex flex-col">
+                    <ConversationDropdown 
+                      placeholder="Seleccionar chat..."
+                      className="min-w-0"
+                      onEditTitle={handleEditTitle}
+                      onDeleteConversation={handleDeleteConversation}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {mensajes.length} mensaje{mensajes.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900">
+                    Chatbot Olímpico
+                  </h1>
+                </div>
+              )}
             </div>
 
             {/* Lado derecho */}
@@ -635,7 +763,7 @@ const ChatPage: React.FC = () => {
         <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100">
           {!conversacionActual ? (
             <div className="h-full flex items-center justify-center p-8">
-              <div className="text-center max-w-md">
+              <div className="text-center max-w-lg w-full">
                 <div className="mx-auto h-16 w-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mb-6">
                   <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -647,11 +775,35 @@ const ChatPage: React.FC = () => {
                 <p className="text-gray-600 mb-6 leading-relaxed">
                   Pregúntame cualquier cosa sobre los Juegos Olímpicos: medallas, atletas, países, deportes y mucho más.
                 </p>
+                
+                {/* Dropdown para seleccionar conversación existente */}
+                {conversaciones.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Selecciona una conversación existente:
+                    </label>
+                    <ConversationDropdown 
+                      placeholder="Elegir conversación..."
+                      className="mb-4"
+                      onEditTitle={handleEditTitle}
+                      onDeleteConversation={handleDeleteConversation}
+                    />
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-300" />
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="px-2 bg-gray-50 text-gray-500">o</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <button
                   onClick={handleNuevaConversacion}
                   className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium"
                 >
-                  🚀 Comenzar Chat
+                  🚀 {conversaciones.length > 0 ? 'Crear Nueva Conversación' : 'Comenzar Chat'}
                 </button>
               </div>
             </div>
@@ -686,7 +838,7 @@ const ChatPage: React.FC = () => {
         {conversacionActual && (
           <div className="border-t border-gray-200 bg-white p-4">
             <div className="max-w-4xl mx-auto">
-              <form onSubmit={handleSubmit} className="flex space-x-3">
+              <form onSubmit={handleSubmit} className="flex space-x-2">
                 <div className="flex-1 relative">
                   <textarea
                     ref={inputRef}
@@ -705,6 +857,19 @@ const ChatPage: React.FC = () => {
                     {mensajeInput.length}/1000
                   </div>
                 </div>
+
+                {/* Quick new conversation button */}
+                <button
+                  type="button"
+                  onClick={handleNuevaConversacion}
+                  disabled={loading}
+                  className="bg-gray-100 text-gray-600 px-3 py-3 rounded-lg hover:bg-gray-200 transition-colors duration-200 disabled:opacity-50"
+                  title="Nueva conversación"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
                 
                 <button
                   type="submit"
@@ -758,6 +923,60 @@ const ChatPage: React.FC = () => {
         confirmText="Eliminar"
         type="danger"
       />
+
+      <FormModal
+        isOpen={showEditTitleModal}
+        onClose={() => {
+          setShowEditTitleModal(false);
+          setEditingConversationId(null);
+          setNewTitle('');
+        }}
+        title="✏️ Editar Título de Conversación"
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="conversation-title" className="block text-sm font-medium text-gray-700 mb-2">
+              Nuevo título:
+            </label>
+            <input
+              id="conversation-title"
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Escribe el nuevo título..."
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              maxLength={100}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && newTitle.trim()) {
+                  handleSaveTitle();
+                }
+              }}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {newTitle.length}/100 caracteres
+            </p>
+          </div>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => {
+                setShowEditTitleModal(false);
+                setEditingConversationId(null);
+                setNewTitle('');
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSaveTitle}
+              disabled={!newTitle.trim()}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      </FormModal>
 
       <FormModal
         isOpen={showSettingsModal}

@@ -70,12 +70,12 @@ class ChatService {
 
   async actualizarTituloConversacion(id: number, nuevoTitulo: string): Promise<ConversacionResponse> {
     try {
+      // El backend espera el título como query parameter, no en el body
       const response = await apiClient.put<ConversacionResponse>(
-        ENDPOINTS.CONVERSATIONS.UPDATE_TITLE(id),
-        nuevoTitulo,
+        `${ENDPOINTS.CONVERSATIONS.UPDATE_TITLE(id)}?nuevo_titulo=${encodeURIComponent(nuevoTitulo)}`,
+        null, // No enviar body
         { 
           timeout: API_CONFIG.TIMEOUTS.NORMAL, // ✅ 30 segundos
-          headers: { 'Content-Type': 'application/json' }
         }
       );
       
