@@ -4,10 +4,153 @@ import { ENDPOINTS, PROMPT_CONTEXTS } from '../utils/constants';
 import type { 
   ConfiguracionPrompt,
   ConfiguracionPromptCreate,
-  ConfiguracionPromptUpdate
+  ConfiguracionPromptUpdate,
+  AdminUser,
+  AdminUserUpdate,
+  AdminConversation,
+  AdminConversationDetail,
+  AdminExcludedTerm,
+  SuccessResponse
 } from '../types';
 
 class AdminService {
+
+  // ==================== GESTIÓN DE USUARIOS (Admin) ====================
+
+  /**
+   * Obtener todos los usuarios (solo admin)
+   */
+  async obtenerUsuarios(): Promise<AdminUser[]> {
+    try {
+      const response = await apiClient.get<AdminUser[]>(
+        ENDPOINTS.ADMIN.USERS
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al obtener usuarios:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener usuario específico (solo admin)
+   */
+  async obtenerUsuario(userId: number): Promise<AdminUser> {
+    try {
+      const response = await apiClient.get<AdminUser>(
+        ENDPOINTS.ADMIN.USER_BY_ID(userId)
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al obtener usuario:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualizar usuario (solo admin)
+   */
+  async actualizarUsuario(userId: number, userData: AdminUserUpdate): Promise<AdminUser> {
+    try {
+      const response = await apiClient.put<AdminUser>(
+        ENDPOINTS.ADMIN.USER_BY_ID(userId),
+        userData
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al actualizar usuario:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Eliminar usuario (solo admin)
+   */
+  async eliminarUsuario(userId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.delete<SuccessResponse>(
+        ENDPOINTS.ADMIN.USER_BY_ID(userId)
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al eliminar usuario:', error);
+      throw error;
+    }
+  }
+
+  // ==================== GESTIÓN DE CONVERSACIONES (Admin) ====================
+
+  /**
+   * Obtener todas las conversaciones (solo admin)
+   */
+  async obtenerTodasConversaciones(userId?: number): Promise<AdminConversation[]> {
+    try {
+      const params = userId ? `?user_id=${userId}` : '';
+      const response = await apiClient.get<AdminConversation[]>(
+        `${ENDPOINTS.ADMIN.CONVERSATIONS}${params}`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al obtener conversaciones:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener conversación específica con mensajes (solo admin)
+   */
+  async obtenerConversacionAdmin(conversationId: number): Promise<AdminConversationDetail> {
+    try {
+      const response = await apiClient.get<AdminConversationDetail>(
+        ENDPOINTS.ADMIN.CONVERSATION_BY_ID(conversationId)
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al obtener conversación:', error);
+      throw error;
+    }
+  }
+
+  // ==================== GESTIÓN DE TÉRMINOS EXCLUIDOS (Admin) ====================
+
+  /**
+   * Obtener todos los términos excluidos (solo admin)
+   */
+  async obtenerTodosTerminosExcluidos(userId?: number): Promise<AdminExcludedTerm[]> {
+    try {
+      const params = userId ? `?user_id=${userId}` : '';
+      const response = await apiClient.get<AdminExcludedTerm[]>(
+        `${ENDPOINTS.ADMIN.EXCLUDED_TERMS}${params}`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al obtener términos excluidos:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Eliminar término excluido como admin
+   */
+  async eliminarTerminoExcluidoAdmin(termId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.delete<SuccessResponse>(
+        ENDPOINTS.ADMIN.EXCLUDED_TERM_BY_ID(termId)
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al eliminar término excluido:', error);
+      throw error;
+    }
+  }
 
   // ==================== GESTIÓN DE CONFIGURACIONES DE PROMPT (Criterio F) ====================
 

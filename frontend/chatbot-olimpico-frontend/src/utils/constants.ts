@@ -49,6 +49,12 @@ export const ENDPOINTS = {
   ADMIN: {
     PROMPTS: '/admin/prompts',
     PROMPT_BY_ID: (id: number) => `/admin/prompts/${id}`,
+    USERS: '/admin/users',
+    USER_BY_ID: (id: number) => `/admin/users/${id}`,
+    CONVERSATIONS: '/admin/conversations',
+    CONVERSATION_BY_ID: (id: number) => `/admin/conversations/${id}`,
+    EXCLUDED_TERMS: '/admin/excluded-terms',
+    EXCLUDED_TERM_BY_ID: (id: number) => `/admin/excluded-terms/${id}`,
   },
   
   // Detalles

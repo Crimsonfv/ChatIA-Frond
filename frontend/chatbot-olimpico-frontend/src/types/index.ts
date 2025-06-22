@@ -138,6 +138,57 @@ export interface ConfiguracionPromptUpdate {
   activo?: boolean;
 }
 
+// ==================== ADMIN TYPES ====================
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  rol: 'user' | 'admin';
+  fecha_registro: string;
+  activo: boolean;
+}
+
+export interface AdminUserUpdate {
+  username?: string;
+  email?: string;
+  rol?: 'user' | 'admin';
+  activo?: boolean;
+}
+
+export interface AdminConversation {
+  id: number;
+  titulo: string;
+  fecha_inicio: string;
+  fecha_ultima_actividad: string;
+  activa: boolean;
+  usuario: {
+    id: number;
+    username: string;
+    email: string;
+  };
+}
+
+export interface AdminConversationDetail extends AdminConversation {
+  mensajes: {
+    id: number;
+    rol: 'user' | 'assistant';
+    contenido: string;
+    consulta_sql?: string;
+    timestamp: string;
+  }[];
+}
+
+export interface AdminExcludedTerm {
+  id: number;
+  termino: string;
+  fecha_creacion: string;
+  usuario: {
+    id: number;
+    username: string;
+    email: string;
+  };
+}
+
 // ==================== INTERFACES DE DATOS OLÍMPICOS ====================
 export interface MedallaOlimpica {
   id: number;
