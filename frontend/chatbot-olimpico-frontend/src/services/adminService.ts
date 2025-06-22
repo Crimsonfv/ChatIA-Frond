@@ -69,10 +69,11 @@ class AdminService {
   /**
    * Eliminar usuario (solo admin)
    */
-  async eliminarUsuario(userId: number): Promise<SuccessResponse> {
+  async eliminarUsuario(userId: number, hardDelete: boolean = false): Promise<SuccessResponse> {
     try {
+      const params = hardDelete ? '?hard_delete=true' : '';
       const response = await apiClient.delete<SuccessResponse>(
-        ENDPOINTS.ADMIN.USER_BY_ID(userId)
+        `${ENDPOINTS.ADMIN.USER_BY_ID(userId)}${params}`
       );
       
       return response;

@@ -102,6 +102,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   type?: 'danger' | 'warning' | 'info';
+  children?: ReactNode;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -112,7 +113,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   message,
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
-  type = 'danger'
+  type = 'danger',
+  children
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -163,6 +165,13 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <p className="text-sm text-gray-500 mb-6">
           {message}
         </p>
+
+        {/* Additional content */}
+        {children && (
+          <div className="mb-6">
+            {children}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex space-x-3 justify-center">

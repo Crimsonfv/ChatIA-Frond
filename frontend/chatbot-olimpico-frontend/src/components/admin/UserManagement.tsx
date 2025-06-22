@@ -12,6 +12,7 @@ const UserManagement: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [hardDelete, setHardDelete] = useState(false);
   const [formData, setFormData] = useState<AdminUserUpdate>({
     username: '',
     email: '',
@@ -87,10 +88,11 @@ const UserManagement: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      await adminService.eliminarUsuario(selectedUser.id);
+      await adminService.eliminarUsuario(selectedUser.id, hardDelete);
       await cargarUsuarios();
       setShowDeleteModal(false);
       setSelectedUser(null);
+      setHardDelete(false);
     } catch (error) {
       console.error('Error al eliminar usuario:', error);
     }
@@ -372,14 +374,36 @@ const UserManagement: React.FC = () => {
       {/* Modal Confirmar Eliminación */}
       <ConfirmModal
         isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setHardDelete(false);
+        }}
         onConfirm={confirmarEliminar}
         title="Eliminar Usuario"
-        message={`¿Estás seguro de que quieres eliminar al usuario "${selectedUser?.username}"? Esta acción desactivará la cuenta del usuario.`}
-        confirmText="Eliminar"
+        message={
+          hardDelete 
+            ? `¿Estás seguro de que quieres ELIMINAR PERMANENTEMENTE al usuario "${selectedUser?.username}"? Esta acción eliminará para siempre la cuenta del usuario y TODAS sus conversaciones y mensajes. Esta acción NO SE PUEDE DESHACER.`
+            : `¿Estás seguro de que quieres desactivar al usuario "${selectedUser?.username}"? Esta acción desactivará la cuenta del usuario pero mantendrá sus datos.`
+        }
+        confirmText={hardDelete ? "Eliminar Permanentemente" : "Desactivar"}
         cancelText="Cancelar"
         type="danger"
-      />
+      >
+        <div className="mt-4 p-4 bg-gray-50 rounded-md">
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="hardDelete"
+              checked={hardDelete}
+              onChange={(e) => setHardDelete(e.target.checked)}
+              className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+            />
+            <label htmlFor="hardDelete" className="text-sm text-gray-700">
+              <strong>Eliminación permanente:</strong> Eliminar todas las conversaciones y mensajes del usuario (no se puede deshacer)
+            </label>
+          </div>
+        </div>
+      </ConfirmModal>
     </div>
   );
 };

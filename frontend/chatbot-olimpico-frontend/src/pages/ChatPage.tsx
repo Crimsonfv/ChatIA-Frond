@@ -945,9 +945,9 @@ const ChatPage: React.FC = () => {
           setConversacionAEliminar(null);
         }}
         onConfirm={confirmarEliminarConversacion}
-        title="Eliminar Conversación"
-        message="¿Estás seguro de que quieres eliminar esta conversación? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
+        title="Eliminar Conversación Permanentemente"
+        message="¿Estás seguro de que quieres ELIMINAR PERMANENTEMENTE esta conversación y todos sus mensajes? Esta acción eliminará completamente todos los datos de la conversación de la base de datos y NO SE PUEDE DESHACER."
+        confirmText="Eliminar Permanentemente"
         type="danger"
       />
 
