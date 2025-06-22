@@ -135,6 +135,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         throw new Error(errores[0]);
       }
 
+      // ✅ VERIFICAR SI HAY TÉRMINOS EXCLUIDOS EN EL MENSAJE
+      const verificacionTerminos = await chatService.verificarTerminosExcluidos(pregunta);
+      if (verificacionTerminos.contiene) {
+        console.log('🔒 Términos excluidos detectados en el mensaje:', verificacionTerminos.terminos);
+      }
+
       // 1. AGREGAR MENSAJE DEL USUARIO INMEDIATAMENTE
       const mensajeUsuario: Mensaje = {
         id: tempId,

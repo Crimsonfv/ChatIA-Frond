@@ -1,5 +1,6 @@
 // src/services/chatService.ts - VERSIÓN OPTIMIZADA PARA RESPUESTAS LARGAS
 import { apiClient } from './api';
+import { filterService } from './filterService';
 import { ENDPOINTS, API_CONFIG, MESSAGES } from '../utils/constants';
 import type { 
   ConversacionCreate,
@@ -86,10 +87,91 @@ class ChatService {
     }
   }
 
+  // ==================== FILTRADO DE TÉRMINOS EXCLUIDOS ====================
+
+  /**
+   * Aplicar filtros de términos excluidos a un mensaje
+   */
+  async aplicarFiltrosExcluidos(mensaje: string): Promise<string> {
+    try {
+      // Obtener términos excluidos del usuario
+      const terminosExcluidos = await filterService.obtenerTerminosExcluidos();
+      const terminosActivos = filterService.obtenerTerminosActivos(terminosExcluidos);
+      
+      if (terminosActivos.length === 0) {
+        return mensaje; // No hay términos que filtrar
+      }
+
+      let mensajeFiltrado = mensaje;
+      
+      // Aplicar filtrado para cada término excluido
+      for (const termino of terminosActivos) {
+        // Crear expresión regular para buscar el término (case-insensitive, word boundaries)
+        const regex = new RegExp(`\\b${this.escapeRegExp(termino.termino)}\\b`, 'gi');
+        
+        // Reemplazar con asteriscos manteniendo la longitud
+        mensajeFiltrado = mensajeFiltrado.replace(regex, (match) => 
+          '*'.repeat(match.length)
+        );
+      }
+
+      // Log para debugging (solo en desarrollo)
+      if (mensajeFiltrado !== mensaje) {
+        console.log('🔒 Términos filtrados aplicados:', {
+          mensaje_original_length: mensaje.length,
+          mensaje_filtrado_length: mensajeFiltrado.length,
+          terminos_aplicados: terminosActivos.length
+        });
+      }
+
+      return mensajeFiltrado;
+    } catch (error) {
+      console.error('Error al aplicar filtros de términos excluidos:', error);
+      // En caso de error, devolver el mensaje original
+      return mensaje;
+    }
+  }
+
+  /**
+   * Escape caracteres especiales para usar en RegExp
+   */
+  private escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Verificar si un mensaje contiene términos excluidos
+   */
+  async verificarTerminosExcluidos(mensaje: string): Promise<{
+    contiene: boolean;
+    terminos: string[];
+  }> {
+    try {
+      const terminosExcluidos = await filterService.obtenerTerminosExcluidos();
+      const terminosActivos = filterService.obtenerTerminosActivos(terminosExcluidos);
+      const terminosEncontrados: string[] = [];
+
+      for (const termino of terminosActivos) {
+        const regex = new RegExp(`\\b${this.escapeRegExp(termino.termino)}\\b`, 'gi');
+        if (regex.test(mensaje)) {
+          terminosEncontrados.push(termino.termino);
+        }
+      }
+
+      return {
+        contiene: terminosEncontrados.length > 0,
+        terminos: terminosEncontrados
+      };
+    } catch (error) {
+      console.error('Error al verificar términos excluidos:', error);
+      return { contiene: false, terminos: [] };
+    }
+  }
+
   // ==================== CHAT CON TIMEOUT OPTIMIZADO ====================
 
   /**
-   * Enviar mensaje - VERSIÓN OPTIMIZADA PARA RESPUESTAS LARGAS
+   * Enviar mensaje - VERSIÓN OPTIMIZADA PARA RESPUESTAS LARGAS Y CON FILTRADO
    */
   async enviarMensaje(chatRequest: ChatRequest): Promise<ChatResponse> {
     try {
@@ -100,10 +182,19 @@ class ChatService {
         pregunta_length: chatRequest.pregunta.length
       });
 
+      // ✅ APLICAR FILTROS DE TÉRMINOS EXCLUIDOS
+      const preguntaFiltrada = await this.aplicarFiltrosExcluidos(chatRequest.pregunta);
+      
+      // Crear request con mensaje filtrado
+      const requestFiltrado: ChatRequest = {
+        ...chatRequest,
+        pregunta: preguntaFiltrada
+      };
+
       // ✅ USAR TIMEOUT LARGO ESPECÍFICO PARA CHAT (2 minutos)
       const response = await apiClient.post<ChatResponse>(
         ENDPOINTS.CHAT.BASE,
-        chatRequest,
+        requestFiltrado,
         { 
           timeout: API_CONFIG.TIMEOUTS.CHAT, // ✅ 120 segundos para chat
           // ✅ Headers adicionales para operaciones largas

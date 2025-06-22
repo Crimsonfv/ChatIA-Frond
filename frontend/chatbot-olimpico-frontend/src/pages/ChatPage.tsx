@@ -306,10 +306,15 @@ const ChatPage: React.FC = () => {
   // ==================== CARGAR TÉRMINOS EXCLUIDOS ====================
   const cargarTerminosExcluidos = async () => {
     try {
+      console.log('🔄 Cargando términos excluidos...');
       const terminos = await filterService.obtenerTerminosExcluidos();
       setTerminosExcluidos(terminos);
+      console.log(`✅ Términos excluidos cargados: ${terminos.length} términos`);
     } catch (error) {
-      console.error('Error al cargar términos excluidos:', error);
+      console.error('❌ Error al cargar términos excluidos:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      console.log(`❌ Detalles del error: ${errorMessage}`);
+      // No mostrar alert aquí ya que es una carga inicial
     }
   };
 
@@ -508,23 +513,45 @@ const ChatPage: React.FC = () => {
   // ==================== MANEJO DE TÉRMINOS EXCLUIDOS ====================
   const handleAgregarTermino = async () => {
     const termino = nuevoTermino.trim();
-    if (!termino) return;
+    if (!termino) {
+      alert('Por favor, ingresa un término válido');
+      return;
+    }
+
+    if (termino.length < 2) {
+      alert('El término debe tener al menos 2 caracteres');
+      return;
+    }
 
     try {
       await filterService.agregarTerminoExcluido({ termino });
       setNuevoTermino('');
       await cargarTerminosExcluidos();
+      console.log(`✅ Término "${termino}" agregado exitosamente`);
     } catch (error) {
       console.error('Error al agregar término:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al agregar término: ${errorMessage}`);
     }
   };
 
   const handleEliminarTermino = async (id: number) => {
+    // Encontrar el término para mostrar confirmación
+    const termino = terminosExcluidos.find(t => t.id === id);
+    const terminoTexto = termino ? termino.termino : 'este término';
+    
+    if (!confirm(`¿Estás seguro de que deseas eliminar "${terminoTexto}" de la lista de términos excluidos?`)) {
+      return;
+    }
+
     try {
       await filterService.eliminarTerminoExcluido(id);
       await cargarTerminosExcluidos();
+      console.log(`✅ Término "${terminoTexto}" eliminado exitosamente`);
     } catch (error) {
       console.error('Error al eliminar término:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al eliminar término: ${errorMessage}`);
     }
   };
 
@@ -989,7 +1016,7 @@ const ChatPage: React.FC = () => {
               🚫 Términos Excluidos
             </h3>
             <p className="text-sm text-gray-600 mb-4">
-              Palabras que serán filtradas de tus preguntas antes de procesarlas.
+              Términos que serán excluidos de los resultados de búsqueda. Los datos que contengan estos términos no aparecerán en las respuestas del chatbot.
             </p>
             
             <div className="flex space-x-2 mb-4">
@@ -997,7 +1024,12 @@ const ChatPage: React.FC = () => {
                 type="text"
                 value={nuevoTermino}
                 onChange={(e) => setNuevoTermino(e.target.value)}
-                placeholder="Agregar término..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && nuevoTermino.trim()) {
+                    handleAgregarTermino();
+                  }
+                }}
+                placeholder="Agregar término... (presiona Enter para agregar)"
                 className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
