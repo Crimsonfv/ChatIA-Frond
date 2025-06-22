@@ -6,9 +6,9 @@ import { adminService } from '../services/adminService';
 import { ROUTES, PROMPT_CONTEXTS } from '../utils/constants';
 import { SectionLoading } from '../components/common/Loading';
 import { ConfirmModal, FormModal } from '../components/common/Modal';
-import ExcludedTermsManager from '../components/ExcludedTermsManager';
 import UserManagement from '../components/admin/UserManagement';
 import ConversationViewer from '../components/admin/ConversationViewer';
+import AdminExcludedTerms from '../components/admin/AdminExcludedTerms';
 import type { ConfiguracionPrompt, ConfiguracionPromptCreate } from '../types';
 
 // ==================== ADMIN PAGE COMPONENT ====================
@@ -255,7 +255,7 @@ const AdminPage: React.FC = () => {
                 <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
                 <p className="text-sm text-gray-600">
                   {activeTab === 'prompts' && 'Configuración de prompts por contexto'}
-                  {activeTab === 'excluded-terms' && 'Gestión de términos excluidos'}
+                  {activeTab === 'excluded-terms' && 'Visualización de términos excluidos de todos los usuarios'}
                   {activeTab === 'users' && 'Gestión de usuarios del sistema'}
                   {activeTab === 'conversations' && 'Visualización de conversaciones de usuarios'}
                 </p>
@@ -322,7 +322,7 @@ const AdminPage: React.FC = () => {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Términos Excluidos
+                Términos Excluidos (Todos)
               </button>
             </nav>
           </div>
@@ -492,7 +492,7 @@ const AdminPage: React.FC = () => {
         ) : activeTab === 'conversations' ? (
           <ConversationViewer />
         ) : (
-          <ExcludedTermsManager />
+          <AdminExcludedTerms />
         )}
       </div>
 
