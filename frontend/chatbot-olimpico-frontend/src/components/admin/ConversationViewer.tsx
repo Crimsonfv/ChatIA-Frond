@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../../services/adminService';
 import { SectionLoading } from '../common/Loading';
+import { ConfirmModal } from '../common/Modal';
 import type { AdminConversation, AdminConversationDetail, AdminUser } from '../../types';
 
 const ConversationViewer: React.FC = () => {
@@ -12,6 +13,11 @@ const ConversationViewer: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState<AdminConversationDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  
+  // Estados para modales de confirmación
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [conversationToModify, setConversationToModify] = useState<AdminConversation | null>(null);
 
   useEffect(() => {
     cargarDatos();
@@ -53,6 +59,42 @@ const ConversationViewer: React.FC = () => {
       console.error('Error al cargar detalle de conversación:', error);
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  const handleDeactivate = (conversation: AdminConversation) => {
+    setConversationToModify(conversation);
+    setShowDeactivateModal(true);
+  };
+
+  const handleDelete = (conversation: AdminConversation) => {
+    setConversationToModify(conversation);
+    setShowDeleteModal(true);
+  };
+
+  const confirmarDesactivar = async () => {
+    if (!conversationToModify) return;
+
+    try {
+      await adminService.desactivarConversacionAdmin(conversationToModify.id);
+      await cargarDatos(); // Recargar datos para actualizar conteos
+      setShowDeactivateModal(false);
+      setConversationToModify(null);
+    } catch (error) {
+      console.error('Error al desactivar conversación:', error);
+    }
+  };
+
+  const confirmarEliminar = async () => {
+    if (!conversationToModify) return;
+
+    try {
+      await adminService.eliminarConversacionAdmin(conversationToModify.id);
+      await cargarDatos(); // Recargar datos para actualizar conteos
+      setShowDeleteModal(false);
+      setConversationToModify(null);
+    } catch (error) {
+      console.error('Error al eliminar conversación:', error);
     }
   };
 
@@ -217,9 +259,38 @@ const ConversationViewer: React.FC = () => {
                   <div className="flex items-center space-x-2 ml-4">
                     <button
                       onClick={() => handleViewConversation(conversation.id)}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 transition-colors"
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 transition-colors flex items-center space-x-1"
+                      title="Ver detalles de la conversación"
                     >
-                      Ver Detalles
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span>Ver Detalles</span>
+                    </button>
+                    
+                    {conversation.activa && (
+                      <button
+                        onClick={() => handleDeactivate(conversation)}
+                        className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm font-medium hover:bg-yellow-200 transition-colors flex items-center space-x-1"
+                        title="Desactivar conversación (soft delete)"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18 12M6 6l12 12" />
+                        </svg>
+                        <span>Desactivar</span>
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => handleDelete(conversation)}
+                      className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition-colors flex items-center space-x-1"
+                      title="Eliminar conversación permanentemente (hard delete)"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Eliminar</span>
                     </button>
                   </div>
                 </div>
@@ -304,6 +375,36 @@ const ConversationViewer: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal Confirmar Desactivación */}
+      <ConfirmModal
+        isOpen={showDeactivateModal}
+        onClose={() => {
+          setShowDeactivateModal(false);
+          setConversationToModify(null);
+        }}
+        onConfirm={confirmarDesactivar}
+        title="Desactivar Conversación"
+        message={`¿Estás seguro de que quieres desactivar la conversación "${conversationToModify?.titulo || `Conversación ${conversationToModify?.id}`}"? Esta acción marcará la conversación como inactiva pero mantendrá todos los datos.`}
+        confirmText="Desactivar"
+        cancelText="Cancelar"
+        type="warning"
+      />
+
+      {/* Modal Confirmar Eliminación */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setConversationToModify(null);
+        }}
+        onConfirm={confirmarEliminar}
+        title="Eliminar Conversación Permanentemente"
+        message={`¿Estás seguro de que quieres ELIMINAR PERMANENTEMENTE la conversación "${conversationToModify?.titulo || `Conversación ${conversationToModify?.id}`}" y todos sus mensajes? Esta acción eliminará completamente todos los datos de la base de datos y NO SE PUEDE DESHACER.`}
+        confirmText="Eliminar Permanentemente"
+        cancelText="Cancelar"
+        type="danger"
+      />
     </div>
   );
 };

@@ -118,6 +118,38 @@ class AdminService {
     }
   }
 
+  /**
+   * Desactivar conversación (solo admin)
+   */
+  async desactivarConversacionAdmin(conversationId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.patch<SuccessResponse>(
+        `${ENDPOINTS.ADMIN.CONVERSATION_BY_ID(conversationId)}/deactivate`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al desactivar conversación:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Eliminar conversación permanentemente (solo admin)
+   */
+  async eliminarConversacionAdmin(conversationId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.delete<SuccessResponse>(
+        ENDPOINTS.ADMIN.CONVERSATION_BY_ID(conversationId)
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al eliminar conversación:', error);
+      throw error;
+    }
+  }
+
   // ==================== GESTIÓN DE TÉRMINOS EXCLUIDOS (Admin) ====================
 
   /**
