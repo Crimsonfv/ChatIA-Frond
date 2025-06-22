@@ -206,7 +206,7 @@ const AdminPage: React.FC = () => {
     if (!configSeleccionada) return;
 
     try {
-      await adminService.desactivarConfiguracionPrompt(configSeleccionada.id);
+      await adminService.eliminarConfiguracionPrompt(configSeleccionada.id);
       await cargarConfiguraciones();
       setShowDeleteModal(false);
       setConfigSeleccionada(null);
@@ -538,9 +538,9 @@ const AdminPage: React.FC = () => {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmarEliminar}
-        title="Eliminar Configuración"
-        message={`¿Estás seguro de que quieres eliminar la configuración "${configSeleccionada?.contexto}"?`}
-        confirmText="Eliminar"
+        title="Eliminar Configuración Permanentemente"
+        message={`¿Estás seguro de que quieres ELIMINAR PERMANENTEMENTE la configuración "${configSeleccionada?.contexto}"? Esta acción eliminará completamente la configuración de la base de datos y NO SE PUEDE DESHACER.`}
+        confirmText="Eliminar Permanentemente"
         cancelText="Cancelar"
         type="danger"
       />

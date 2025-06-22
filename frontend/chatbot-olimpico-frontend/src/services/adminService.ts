@@ -240,6 +240,22 @@ class AdminService {
     }
   }
 
+  /**
+   * Eliminar configuración de prompt permanentemente (hard delete)
+   */
+  async eliminarConfiguracionPrompt(configId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.delete<SuccessResponse>(
+        ENDPOINTS.ADMIN.PROMPT_BY_ID(configId)
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al eliminar configuración de prompt:', error);
+      throw error;
+    }
+  }
+
   // ==================== HELPERS Y VALIDACIONES ====================
 
   /**
