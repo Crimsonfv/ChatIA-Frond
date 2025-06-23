@@ -167,6 +167,22 @@ class AdminService {
   }
 
   /**
+   * Reactivar conversación (solo admin)
+   */
+  async activarConversacionAdmin(conversationId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.patch<SuccessResponse>(
+        `${ENDPOINTS.ADMIN.CONVERSATION_BY_ID(conversationId)}/activate`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al reactivar conversación:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Eliminar conversación permanentemente (solo admin)
    */
   async eliminarConversacionAdmin(conversationId: number): Promise<SuccessResponse> {
@@ -213,6 +229,22 @@ class AdminService {
       return response;
     } catch (error) {
       console.error('Error al desactivar término excluido:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reactivar término excluido como admin
+   */
+  async activarTerminoExcluidoAdmin(termId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.patch<SuccessResponse>(
+        `${ENDPOINTS.ADMIN.EXCLUDED_TERM_BY_ID(termId)}/activate`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al reactivar término excluido:', error);
       throw error;
     }
   }

@@ -51,6 +51,15 @@ const AdminExcludedTerms: React.FC = () => {
     setShowDeactivateModal(true);
   };
 
+  const handleActivate = async (term: AdminExcludedTerm) => {
+    try {
+      await adminService.activarTerminoExcluidoAdmin(term.id);
+      await cargarDatos(); // Recargar datos para actualizar estadísticas
+    } catch (error) {
+      console.error('Error al reactivar término:', error);
+    }
+  };
+
   const handleDelete = (term: AdminExcludedTerm) => {
     setSelectedTerm(term);
     setShowDeleteModal(true);
@@ -95,6 +104,8 @@ const AdminExcludedTerms: React.FC = () => {
   // Estadísticas
   const estadisticas = {
     totalTerminos: terms.length,
+    terminosActivos: terms.filter(t => t.activo).length,
+    terminosInactivos: terms.filter(t => !t.activo).length,
     usuariosConTerminos: new Set(terms.map(t => t.usuario.id)).size,
     terminosPorUsuario: terms.reduce((acc, term) => {
       const userId = term.usuario.id;
@@ -110,7 +121,7 @@ const AdminExcludedTerms: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -130,6 +141,38 @@ const AdminExcludedTerms: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Términos Activos</p>
+              <p className="text-2xl font-bold text-gray-900">{estadisticas.terminosActivos}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-gray-100 rounded-md flex items-center justify-center">
+                <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Términos Inactivos</p>
+              <p className="text-2xl font-bold text-gray-900">{estadisticas.terminosInactivos}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
                 <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
@@ -139,26 +182,6 @@ const AdminExcludedTerms: React.FC = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Usuarios con Términos</p>
               <p className="text-2xl font-bold text-gray-900">{estadisticas.usuariosConTerminos}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-yellow-100 rounded-md flex items-center justify-center">
-                <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Promedio por Usuario</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {estadisticas.usuariosConTerminos > 0 
-                  ? Math.round(estadisticas.totalTerminos / estadisticas.usuariosConTerminos * 10) / 10
-                  : 0}
-              </p>
             </div>
           </div>
         </div>
@@ -208,12 +231,17 @@ const AdminExcludedTerms: React.FC = () => {
             </div>
           ) : (
             terminosFiltrados.map((term) => (
-              <div key={term.id} className="p-6 hover:bg-gray-50">
+              <div key={term.id} className={`p-6 hover:bg-gray-50 ${!term.activo ? 'bg-gray-50 border-l-4 border-gray-400' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
-                      <span className="text-lg font-medium text-gray-900 bg-red-50 px-3 py-1 rounded-full border border-red-200">
+                      <span className={`text-lg font-medium px-3 py-1 rounded-full border ${
+                        term.activo 
+                          ? 'text-gray-900 bg-red-50 border-red-200' 
+                          : 'text-gray-500 bg-gray-100 border-gray-300'
+                      }`}>
                         {term.termino}
+                        {!term.activo && ' (Inactivo)'}
                       </span>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         term.activo 
@@ -247,7 +275,7 @@ const AdminExcludedTerms: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    {term.activo && (
+                    {term.activo ? (
                       <button
                         onClick={() => handleDeactivate(term)}
                         className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm font-medium hover:bg-yellow-200 transition-colors flex items-center space-x-1"
@@ -257,6 +285,17 @@ const AdminExcludedTerms: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18 12M6 6l12 12" />
                         </svg>
                         <span>Desactivar</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleActivate(term)}
+                        className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-medium hover:bg-green-200 transition-colors flex items-center space-x-1"
+                        title="Reactivar término excluido"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Reactivar</span>
                       </button>
                     )}
                     

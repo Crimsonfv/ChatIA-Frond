@@ -309,43 +309,45 @@ const UserManagement: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    <button
-                      onClick={() => handleEdit(user)}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 transition-colors"
-                    >
-                      Editar
-                    </button>
+                    {/* Botón Editar - No mostrar para otros administradores */}
+                    {!(user.rol === 'admin' && user.id !== currentUser?.id) && (
+                      <button
+                        onClick={() => handleEdit(user)}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 transition-colors"
+                      >
+                        Editar
+                      </button>
+                    )}
                     
-                    <button
-                      onClick={() => {
-                        if (user.activo) {
-                          if (currentUser?.id === user.id) {
-                            toast.error('No puedes desactivar tu propia cuenta');
-                            return;
+                    {/* Botón Desactivar/Activar - No mostrar para otros administradores */}
+                    {user.rol !== 'admin' && (
+                      <button
+                        onClick={() => {
+                          if (user.activo) {
+                            handleDeactivateClick(user);
+                          } else {
+                            handleActivate(user);
                           }
-                          handleDeactivateClick(user);
-                        } else {
-                          handleActivate(user);
-                        }
-                      }}
-                      disabled={user.activo && currentUser?.id === user.id}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        user.activo && currentUser?.id === user.id
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : user.activo
-                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                      }`}
-                    >
-                      {user.activo ? 'Desactivar' : 'Activar'}
-                    </button>
+                        }}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          user.activo
+                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                      >
+                        {user.activo ? 'Desactivar' : 'Activar'}
+                      </button>
+                    )}
                     
-                    <button
-                      onClick={() => handleDelete(user)}
-                      className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition-colors"
-                    >
-                      Eliminar
-                    </button>
+                    {/* Botón Eliminar - Oculto para admins y para la propia cuenta del admin actual */}
+                    {!(user.rol === 'admin' || user.id === currentUser?.id) && (
+                      <button
+                        onClick={() => handleDelete(user)}
+                        className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition-colors"
+                      >
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -422,14 +424,19 @@ const UserManagement: React.FC = () => {
           <div>
             <label htmlFor="rol" className="block text-sm font-medium text-gray-700 mb-1">
               Rol
+              {selectedUser?.id === currentUser?.id && (
+                <span className="text-xs text-gray-500 ml-2">(No puedes cambiar tu propio rol)</span>
+              )}
             </label>
             <select
               id="rol"
               name="rol"
               value={formData.rol}
               onChange={handleChange}
-              disabled={guardando}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={guardando || selectedUser?.id === currentUser?.id}
+              className={`w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                selectedUser?.id === currentUser?.id ? 'bg-gray-100 cursor-not-allowed' : ''
+              }`}
             >
               <option value="user">Usuario</option>
               <option value="admin">Administrador</option>
