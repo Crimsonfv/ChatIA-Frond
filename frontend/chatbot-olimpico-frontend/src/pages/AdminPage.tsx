@@ -1,5 +1,5 @@
 // src/pages/AdminPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { adminService } from '../services/adminService';
@@ -35,6 +35,19 @@ const AdminPage: React.FC = () => {
   const [erroresForm, setErroresForm] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
 
+  // ==================== CARGAR CONFIGURACIONES ====================
+  const cargarConfiguraciones = useCallback(async () => {
+    try {
+      setLoading(true);
+      const configs = await adminService.obtenerConfiguracionesPrompt(!soloActivas);
+      setConfiguraciones(configs);
+    } catch (error) {
+      console.error('Error al cargar configuraciones:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [soloActivas]);
+
   // ==================== EFECTOS ====================
   useEffect(() => {
     // Verificar permisos de admin
@@ -44,20 +57,14 @@ const AdminPage: React.FC = () => {
     }
     
     cargarConfiguraciones();
-  }, [isAdmin, navigate]);
+  }, [isAdmin, navigate, cargarConfiguraciones]);
 
-  // ==================== CARGAR CONFIGURACIONES ====================
-  const cargarConfiguraciones = async () => {
-    try {
-      setLoading(true);
-      const configs = await adminService.obtenerConfiguracionesPrompt();
-      setConfiguraciones(configs);
-    } catch (error) {
-      console.error('Error al cargar configuraciones:', error);
-    } finally {
-      setLoading(false);
+  // Recargar configuraciones cuando cambie el filtro "Solo activas"
+  useEffect(() => {
+    if (isAdmin) {
+      cargarConfiguraciones();
     }
-  };
+  }, [soloActivas, isAdmin, cargarConfiguraciones]);
 
   // ==================== FILTRAR CONFIGURACIONES ====================
   const configuracionesFiltradas = configuraciones.filter(config => {
@@ -65,9 +72,8 @@ const AdminPage: React.FC = () => {
       config.contexto.toLowerCase().includes(filtro.toLowerCase()) ||
       config.prompt_sistema.toLowerCase().includes(filtro.toLowerCase());
     
-    const coincideEstado = !soloActivas || config.activo;
-    
-    return coincideFiltro && coincideEstado;
+    // Estado es manejado por el backend según el parámetro soloActivas
+    return coincideFiltro;
   });
 
   // ==================== OBTENER ESTADÍSTICAS ====================

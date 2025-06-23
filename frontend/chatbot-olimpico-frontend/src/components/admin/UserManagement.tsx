@@ -4,13 +4,18 @@ import { adminService } from '../../services/adminService';
 import { SectionLoading } from '../common/Loading';
 import { ConfirmModal, FormModal } from '../common/Modal';
 import type { AdminUser, AdminUserUpdate } from '../../types';
+import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 const UserManagement: React.FC = () => {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('');
+  const [mostrarSoloActivos, setMostrarSoloActivos] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [hardDelete, setHardDelete] = useState(false);
   const [formData, setFormData] = useState<AdminUserUpdate>({
@@ -38,11 +43,15 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const usuariosFiltrados = users.filter(user => 
-    !filtro || 
-    user.username.toLowerCase().includes(filtro.toLowerCase()) ||
-    user.email.toLowerCase().includes(filtro.toLowerCase())
-  );
+  const usuariosFiltrados = users.filter(user => {
+    const coincideFiltro = !filtro || 
+      user.username.toLowerCase().includes(filtro.toLowerCase()) ||
+      user.email.toLowerCase().includes(filtro.toLowerCase());
+    
+    const coincideEstado = !mostrarSoloActivos || user.activo;
+    
+    return coincideFiltro && coincideEstado;
+  });
 
   const handleEdit = (user: AdminUser) => {
     setSelectedUser(user);
@@ -58,6 +67,43 @@ const UserManagement: React.FC = () => {
   const handleDelete = (user: AdminUser) => {
     setSelectedUser(user);
     setShowDeleteModal(true);
+  };
+
+  const handleActivate = async (user: AdminUser) => {
+    try {
+      await adminService.activarUsuario(user.id);
+      await cargarUsuarios();
+      toast.success(`Usuario "${user.username}" activado exitosamente`);
+    } catch (error) {
+      console.error('Error al activar usuario:', error);
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as {response?: {data?: {detail?: string}}}).response?.data?.detail || 'Error al activar usuario'
+        : 'Error al activar usuario';
+      toast.error(`Error al activar usuario: ${errorMessage}`);
+    }
+  };
+
+  const handleDeactivateClick = (user: AdminUser) => {
+    setSelectedUser(user);
+    setShowDeactivateModal(true);
+  };
+
+  const handleDeactivate = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      await adminService.desactivarUsuario(selectedUser.id);
+      await cargarUsuarios();
+      toast.success(`Usuario "${selectedUser.username}" desactivado exitosamente`);
+      setShowDeactivateModal(false);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Error al desactivar usuario:', error);
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as {response?: {data?: {detail?: string}}}).response?.data?.detail || 'Error al desactivar usuario'
+        : 'Error al desactivar usuario';
+      toast.error(`Error al desactivar usuario: ${errorMessage}`);
+    }
   };
 
   const confirmarEditar = async () => {
@@ -206,6 +252,18 @@ const UserManagement: React.FC = () => {
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={mostrarSoloActivos}
+                  onChange={(e) => setMostrarSoloActivos(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Solo usuarios activos</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -217,12 +275,13 @@ const UserManagement: React.FC = () => {
             </div>
           ) : (
             usuariosFiltrados.map((user) => (
-              <div key={user.id} className="p-6 hover:bg-gray-50">
+              <div key={user.id} className={`p-6 hover:bg-gray-50 ${!user.activo ? 'bg-gray-50 border-l-4 border-gray-400' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-medium text-gray-900">
+                      <h3 className={`text-lg font-medium ${user.activo ? 'text-gray-900' : 'text-gray-500'}`}>
                         {user.username}
+                        {!user.activo && ' (Inactivo)'}
                       </h3>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         user.rol === 'admin' 
@@ -255,6 +314,30 @@ const UserManagement: React.FC = () => {
                       className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 transition-colors"
                     >
                       Editar
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        if (user.activo) {
+                          if (currentUser?.id === user.id) {
+                            toast.error('No puedes desactivar tu propia cuenta');
+                            return;
+                          }
+                          handleDeactivateClick(user);
+                        } else {
+                          handleActivate(user);
+                        }
+                      }}
+                      disabled={user.activo && currentUser?.id === user.id}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        user.activo && currentUser?.id === user.id
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : user.activo
+                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      }`}
+                    >
+                      {user.activo ? 'Desactivar' : 'Activar'}
                     </button>
                     
                     <button
@@ -404,6 +487,21 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       </ConfirmModal>
+
+      {/* Modal Confirmar Desactivación */}
+      <ConfirmModal
+        isOpen={showDeactivateModal}
+        onClose={() => {
+          setShowDeactivateModal(false);
+          setSelectedUser(null);
+        }}
+        onConfirm={handleDeactivate}
+        title="Desactivar Usuario"
+        message={`¿Estás seguro de que quieres desactivar al usuario "${selectedUser?.username}"? Esta acción impedirá que el usuario pueda iniciar sesión, pero mantendrá todos sus datos intactos.`}
+        confirmText="Desactivar"
+        cancelText="Cancelar"
+        type="warning"
+      />
     </div>
   );
 };

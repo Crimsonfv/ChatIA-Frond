@@ -83,6 +83,38 @@ class AdminService {
     }
   }
 
+  /**
+   * Activar usuario desactivado (solo admin)
+   */
+  async activarUsuario(userId: number): Promise<AdminUser> {
+    try {
+      const response = await apiClient.patch<AdminUser>(
+        `${ENDPOINTS.ADMIN.USER_BY_ID(userId)}/activate`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al activar usuario:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Desactivar usuario activo (solo admin)
+   */
+  async desactivarUsuario(userId: number): Promise<AdminUser> {
+    try {
+      const response = await apiClient.patch<AdminUser>(
+        `${ENDPOINTS.ADMIN.USER_BY_ID(userId)}/deactivate`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al desactivar usuario:', error);
+      throw error;
+    }
+  }
+
   // ==================== GESTIÓN DE CONVERSACIONES (Admin) ====================
 
   /**
@@ -206,10 +238,12 @@ class AdminService {
   /**
    * Obtener todas las configuraciones de prompt (solo admin)
    */
-  async obtenerConfiguracionesPrompt(): Promise<ConfiguracionPrompt[]> {
+  async obtenerConfiguracionesPrompt(includeInactive: boolean = false): Promise<ConfiguracionPrompt[]> {
     try {
+      const params = includeInactive ? { include_inactive: true } : {};
       const response = await apiClient.get<ConfiguracionPrompt[]>(
-        ENDPOINTS.ADMIN.PROMPTS
+        ENDPOINTS.ADMIN.PROMPTS,
+        { params }
       );
       
       return response;
@@ -277,9 +311,9 @@ class AdminService {
    */
   async activarConfiguracionPrompt(configId: number): Promise<ConfiguracionPrompt> {
     try {
-      const response = await this.actualizarConfiguracionPrompt(configId, {
-        activo: true
-      });
+      const response = await apiClient.patch<ConfiguracionPrompt>(
+        `${ENDPOINTS.ADMIN.PROMPTS}/${configId}/activate`
+      );
       
       return response;
     } catch (error) {
