@@ -136,7 +136,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ mensaje, onShowDetails, forma
               {formatearTiempo(mensaje.timestamp)}
             </p>
             
-            {mensaje.consulta_sql && (
+            {mensaje.consulta_sql && mensaje.consulta_sql.trim() !== '' && (
               <button
                 onClick={() => onShowDetails?.(mensaje)}
                 className={`text-xs underline hover:no-underline transition-all ${
@@ -494,7 +494,7 @@ const ChatPage: React.FC = () => {
 
   // ==================== MANEJO DE DETALLES ====================
   const handleMostrarDetalles = async (mensaje: Mensaje) => {
-    if (!mensaje.consulta_sql) return;
+    if (!mensaje.consulta_sql || mensaje.consulta_sql.trim() === '') return;
 
     setSelectedMessage(mensaje);
     setLoadingDetails(true);

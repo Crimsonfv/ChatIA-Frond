@@ -391,7 +391,7 @@ const ConversationViewer: React.FC = () => {
                         <div className="whitespace-pre-wrap break-words">
                           {mensaje.contenido}
                         </div>
-                        {mensaje.consulta_sql && (
+                        {mensaje.consulta_sql && mensaje.consulta_sql.trim() !== '' && (
                           <div className="mt-3 p-2 bg-black bg-opacity-20 rounded text-xs">
                             <div className="font-medium mb-1">Consulta SQL:</div>
                             <code className="whitespace-pre-wrap">{mensaje.consulta_sql}</code>
