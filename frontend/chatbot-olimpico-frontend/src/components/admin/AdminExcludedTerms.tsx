@@ -12,6 +12,7 @@ const AdminExcludedTerms: React.FC = () => {
   const [filtro, setFiltro] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState<AdminExcludedTerm | null>(null);
 
   useEffect(() => {
@@ -45,9 +46,27 @@ const AdminExcludedTerms: React.FC = () => {
     term.usuario.email.toLowerCase().includes(filtro.toLowerCase())
   );
 
+  const handleDeactivate = (term: AdminExcludedTerm) => {
+    setSelectedTerm(term);
+    setShowDeactivateModal(true);
+  };
+
   const handleDelete = (term: AdminExcludedTerm) => {
     setSelectedTerm(term);
     setShowDeleteModal(true);
+  };
+
+  const confirmarDesactivar = async () => {
+    if (!selectedTerm) return;
+
+    try {
+      await adminService.desactivarTerminoExcluidoAdmin(selectedTerm.id);
+      await cargarDatos(); // Recargar datos para actualizar estadísticas
+      setShowDeactivateModal(false);
+      setSelectedTerm(null);
+    } catch (error) {
+      console.error('Error al desactivar término:', error);
+    }
   };
 
   const confirmarEliminar = async () => {
@@ -55,7 +74,7 @@ const AdminExcludedTerms: React.FC = () => {
 
     try {
       await adminService.eliminarTerminoExcluidoAdmin(selectedTerm.id);
-      await cargarDatos();
+      await cargarDatos(); // Recargar datos para actualizar estadísticas
       setShowDeleteModal(false);
       setSelectedTerm(null);
     } catch (error) {
@@ -196,8 +215,12 @@ const AdminExcludedTerms: React.FC = () => {
                       <span className="text-lg font-medium text-gray-900 bg-red-50 px-3 py-1 rounded-full border border-red-200">
                         {term.termino}
                       </span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Activo
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        term.activo 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {term.activo ? 'Activo' : 'Inactivo'}
                       </span>
                     </div>
                     
@@ -224,12 +247,28 @@ const AdminExcludedTerms: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
+                    {term.activo && (
+                      <button
+                        onClick={() => handleDeactivate(term)}
+                        className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm font-medium hover:bg-yellow-200 transition-colors flex items-center space-x-1"
+                        title="Desactivar término excluido (soft delete)"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18 12M6 6l12 12" />
+                        </svg>
+                        <span>Desactivar</span>
+                      </button>
+                    )}
+                    
                     <button
                       onClick={() => handleDelete(term)}
-                      className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition-colors"
-                      title="Eliminar término excluido"
+                      className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition-colors flex items-center space-x-1"
+                      title="Eliminar término excluido permanentemente (hard delete)"
                     >
-                      Eliminar
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Eliminar</span>
                     </button>
                   </div>
                 </div>
@@ -239,18 +278,40 @@ const AdminExcludedTerms: React.FC = () => {
         </div>
       </div>
 
+      {/* Modal de confirmación de desactivación */}
+      <ConfirmModal
+        isOpen={showDeactivateModal}
+        onClose={() => {
+          setShowDeactivateModal(false);
+          setSelectedTerm(null);
+        }}
+        onConfirm={confirmarDesactivar}
+        title="Desactivar Término Excluido"
+        message={
+          selectedTerm 
+            ? `¿Estás seguro de que quieres desactivar el término "${selectedTerm.termino}" del usuario ${selectedTerm.usuario.username}? Esta acción marcará el término como inactivo pero mantendrá el registro en la base de datos.`
+            : ''
+        }
+        confirmText="Desactivar"
+        cancelText="Cancelar"
+        type="warning"
+      />
+
       {/* Modal de confirmación de eliminación */}
       <ConfirmModal
         isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedTerm(null);
+        }}
         onConfirm={confirmarEliminar}
-        title="Eliminar Término Excluido"
+        title="Eliminar Término Excluido Permanentemente"
         message={
           selectedTerm 
-            ? `¿Estás seguro de que quieres eliminar el término "${selectedTerm.termino}" del usuario ${selectedTerm.usuario.username}?`
+            ? `¿Estás seguro de que quieres ELIMINAR PERMANENTEMENTE el término "${selectedTerm.termino}" del usuario ${selectedTerm.usuario.username}? Esta acción eliminará completamente el registro de la base de datos y NO SE PUEDE DESHACER.`
             : ''
         }
-        confirmText="Eliminar"
+        confirmText="Eliminar Permanentemente"
         cancelText="Cancelar"
         type="danger"
       />

@@ -170,7 +170,23 @@ class AdminService {
   }
 
   /**
-   * Eliminar término excluido como admin
+   * Desactivar término excluido como admin
+   */
+  async desactivarTerminoExcluidoAdmin(termId: number): Promise<SuccessResponse> {
+    try {
+      const response = await apiClient.patch<SuccessResponse>(
+        `${ENDPOINTS.ADMIN.EXCLUDED_TERM_BY_ID(termId)}/deactivate`
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error al desactivar término excluido:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Eliminar término excluido permanentemente como admin
    */
   async eliminarTerminoExcluidoAdmin(termId: number): Promise<SuccessResponse> {
     try {

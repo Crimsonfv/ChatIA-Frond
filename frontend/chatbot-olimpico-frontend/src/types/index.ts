@@ -181,6 +181,7 @@ export interface AdminConversationDetail extends AdminConversation {
 export interface AdminExcludedTerm {
   id: number;
   termino: string;
+  activo: boolean;
   fecha_creacion: string;
   usuario: {
     id: number;
