@@ -147,31 +147,8 @@ export const DataDetailsSideModal: React.FC<DataDetailsSideModalProps> = ({
             </div>
           </div>
 
-          {/* SQL Query */}
-          {sqlQuery && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Consulta SQL ejecutada
-              </h4>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto border">
-                <code className="text-green-400 text-sm whitespace-pre-wrap font-mono leading-relaxed">
-                  {sqlQuery}
-                </code>
-              </div>
-              <button 
-                onClick={() => navigator.clipboard.writeText(sqlQuery)}
-                className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center"
-              >
-                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                Copiar consulta
-              </button>
-            </div>
-          )}
+          {/* SQL Query - OCULTA PARA USUARIOS */}
+          {/* La consulta SQL se oculta por seguridad - los usuarios no deben ver las consultas internas */}
 
           {/* Data Table */}
           {data.length > 0 && (

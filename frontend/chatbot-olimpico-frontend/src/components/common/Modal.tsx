@@ -235,17 +235,8 @@ export const DataDetailsModal: React.FC<DataDetailsModalProps> = ({
             </p>
           </div>
 
-          {/* SQL Query */}
-          {sqlQuery && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Consulta SQL</h4>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <code className="text-green-400 text-sm whitespace-pre-wrap">
-                  {sqlQuery}
-                </code>
-              </div>
-            </div>
-          )}
+          {/* SQL Query - OCULTA PARA USUARIOS */}
+          {/* La consulta SQL se oculta por seguridad - los usuarios no deben ver las consultas internas */}
 
           {/* Data Table */}
           {data.length > 0 && (
